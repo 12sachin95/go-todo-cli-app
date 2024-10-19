@@ -15,35 +15,9 @@ import (
 	"golang.org/x/crypto/bcrypt"
 )
 
-type Token struct {
-	Token string `bson:"token"`
-	// Add other fields as needed (e.g., expiration time, user ID)
-}
-
-// func generateToken(claims jwt.MapClaims) (string, error) {
-// 	// Set token expiration time
-// 	claims["exp"] = time.Now().Add(time.Hour * 24).Unix() // Adjust expiration as needed
-
-// 	// Create a new JWT token
-// 	token := jwt.NewWithClaims(jwt.SigningMethodHS256, claims)
-
-// 	// Sign the token with a secret key
-// 	return token.SignedString([]byte("your-secret-key")) // Replace with a secure secret
-// }
-// func saveTokenToMongoDB(ctx context.Context, collection *mongo.Collection, token string) error {
-// 	// Create a token document
-// 	tokenDoc := Token{
-// 		Token: token,
-// 		// Add other fields if needed
-// 	}
-
-// 	// Insert the token document into the collection
-// 	_, err := collection.InsertOne(ctx, tokenDoc)
-// 	if err != nil {
-// 		return err
-// 	}
-
-// 	return nil
+// type Token struct {
+// 	Token string `bson:"token"`
+// 	// Add other fields as needed (e.g., expiration time, user ID)
 // }
 
 // RegisterUser adds a new user to MongoDB
@@ -98,7 +72,9 @@ func AuthenticateUser(username, password string) (string, error) {
 	}
 	// Store the token in MongoDB for future validation (optional, used for logout)
 	tokensCollection := db.GetCollection("go-todo-db", "tokens")
-	tokensCollection.InsertOne(ctx, bson.M{"token": tokenString})
+	tokensCollection.InsertOne(ctx, bson.M{"user_id": user.ID.Hex(),
+		"token": tokenString,
+		"exp":   time.Now().Add(time.Hour * 72).Unix()})
 
 	return tokenString, nil
 }

@@ -1,59 +1,85 @@
 package cmd
 
 import (
-	"context"
 	"fmt"
+	"go-todo-cli/db"
 	"log"
 
 	"github.com/go-resty/resty/v2"
 	"github.com/spf13/cobra"
-	"go.mongodb.org/mongo-driver/bson"
-	"go.mongodb.org/mongo-driver/mongo"
-	"go.mongodb.org/mongo-driver/mongo/options"
 )
 
-// Struct to hold the response from the login API
-// type LoginResponse struct {
-// 	Token string `json:"token"`
-// }
+// Group command: `todoCmd`
+var todoCmd = &cobra.Command{
+	Use:   "todo",
+	Short: "Commands related to todos",
+	PersistentPreRun: func(cmd *cobra.Command, args []string) {
+		// Ensure user_id flag is set for todo commands
+		if userID == "" {
+			log.Fatalf("The --user_id flag is required for this command.")
+		}
+	},
+}
 
-// func getTokenFromMongoDB(ctx context.Context, collection *mongo.Collection) (string, error) {
-// 	// Construct a query to find the token document
-// 	filter := bson.M{}
+// Group command: `userCmd`
+var userCmd = &cobra.Command{
+	Use:   "user",
+	Short: "Commands related to users",
+}
 
-// 	// Find the first token document
-// 	result := collection.FindOne(ctx, filter)
-// 	if result.Err() != nil {
-// 		return "", fmt.Errorf("error finding token: %w", result.Err())
-// 	}
+// Declare userID at the package level
+var userID string
 
-// 	// Check if the result is nil
-// 	if result.Err() == mongo.ErrNoDocuments {
-// 		return "", fmt.Errorf("no token found in MongoDB")
-// 	}
+func init() {
 
-// 	// Decode the token document
-// 	var tokenDoc struct {
-// 		Token string `bson:"token"`
-// 	}
-// 	err := result.Decode(&tokenDoc)
-// 	if err != nil {
-// 		return "", fmt.Errorf("error decoding token: %w", err)
-// 	}
+	RootCmd.AddCommand(userCmd)
+	RootCmd.AddCommand(todoCmd)
 
-// 	return tokenDoc.Token, nil
-// }
+	userCmd.AddCommand(registerCmd) // Add register command
+	userCmd.AddCommand(loginCmd)    // Add login command
+
+	// Define the --user_id flag as a persistent flag foronly logout cmd in user group
+	logoutCmd.Flags().String("user_id", "", "User ID to get the token for")
+	logoutCmd.MarkFlagRequired("user_id")
+	userCmd.AddCommand(logoutCmd)
+
+	// Define the --user_id flag as a persistent flag for the `todoCmd` group
+	todoCmd.PersistentFlags().StringVar(&userID, "user_id", "", "User ID to perform actions on todos")
+	todoCmd.MarkPersistentFlagRequired("user_id")
+	todoCmd.AddCommand(createCmd)
+	todoCmd.AddCommand(getCmd)
+	todoCmd.AddCommand(updateCmd)
+	todoCmd.AddCommand(deleteCmd)
+	todoCmd.AddCommand(getAllCmd)
+}
+
+// GetTokenForUser retrieves the token for a given user_id from the command flags
+func GetTokenForUser(cmd *cobra.Command) (string, error) {
+	// Get the user_id from the command flag
+	userID, err := cmd.Flags().GetString("user_id")
+	if err != nil {
+		log.Fatalf("Error reading user_id flag: %v", err)
+	}
+
+	// Fetch the token from MongoDB using the user_id
+	token, err := db.GetTokenByUserID(userID)
+	if err != nil {
+		log.Fatalf("Error retrieving token for user_id %s: %v", userID, err)
+	}
+
+	return token, nil
+}
 
 var registerCmd = &cobra.Command{
 	Use:   "register [username] [password]",
 	Short: "Register a new user",
 	Args:  cobra.ExactArgs(2),
 	Run: func(cmd *cobra.Command, args []string) {
-		client := resty.New()
+		restyClient := resty.New()
 		username := args[0]
 		password := args[1]
 
-		resp, err := client.R().
+		resp, err := restyClient.R().
 			SetBody(map[string]string{"username": username, "password": password}).
 			Post(TODO_SERVER_PATH + "/register")
 
@@ -75,11 +101,11 @@ var loginCmd = &cobra.Command{
 	Short: "Login and get a JWT token",
 	Args:  cobra.ExactArgs(2),
 	Run: func(cmd *cobra.Command, args []string) {
-		client := resty.New()
+		restyClient := resty.New()
 		username := args[0]
 		password := args[1]
 
-		resp, err := client.R().
+		resp, err := restyClient.R().
 			SetBody(map[string]string{"username": username, "password": password}).
 			Post(TODO_SERVER_PATH + "/login")
 
@@ -89,23 +115,6 @@ var loginCmd = &cobra.Command{
 		}
 
 		if resp.StatusCode() == 200 {
-			// Unmarshal the JSON response to get the token
-			// var loginResponse LoginResponse
-			// err = json.Unmarshal(resp.Body(), &loginResponse)
-			// if err != nil {
-			// 	fmt.Println("Error parsing response:", err)
-			// 	return
-			// }
-
-			// // Save the token to the file
-			// token := loginResponse.Token
-
-			// err := utils.SaveTokenToFile(token) // Save the token to the file
-			// if err != nil {
-			// 	fmt.Println("Error saving token:", err)
-			// 	return
-			// }
-			// fmt.Println("Logged in successfully. Token saved.")
 			fmt.Printf("Logged in! Token: %s\n", resp.String())
 		} else {
 			fmt.Println("Login failed:", resp.String())
@@ -117,50 +126,17 @@ var logoutCmd = &cobra.Command{
 	Use:   "logout",
 	Short: "Logout and clear the JWT token",
 	Run: func(cmd *cobra.Command, args []string) {
-		// Delete the token file
-		// err := utils.DeleteTokenFile()
-		// err := godotenv.Load()
-		// if err != nil {
-		// 	log.Fatal("Error loading .env file")
-		// }
-
-		// // MongoDB URI and options
-		// mongoURI := os.Getenv("MONGODB_URI")
-		clientOptions := options.Client().ApplyURI(MONGODB_URI)
-
-		// Create a MongoDB client
-		client, err := mongo.Connect(context.TODO(), clientOptions)
+		// Use the reusable function to get the token
+		token, err := GetTokenForUser(cmd)
 		if err != nil {
-			log.Fatal(err)
+			log.Fatalf("Failed to get token: %v", err)
 		}
 
-		// Disconnect client at the end
-		defer func() {
-			if err := client.Disconnect(context.TODO()); err != nil {
-				log.Fatal(err)
-			}
-		}()
+		// Create a new Resty Client
+		restyClient := resty.New()
 
-		// Connect to the database and collection
-		collection := client.Database("go-todo-db").Collection("tokens")
-
-		// Query the token
-		var result struct {
-			Token string `bson:"token"`
-		}
-
-		// Find one document
-		err = collection.FindOne(context.TODO(), bson.M{}).Decode(&result)
-		if err != nil {
-			log.Fatal(err)
-		}
-
-		// Create a new Resty client
-
-		client2 := resty.New()
-
-		resp, err := client2.R().
-			SetHeader("Authorization", "Bearer "+result.Token).
+		resp, err := restyClient.R().
+			SetHeader("Authorization", "Bearer "+token).
 			Post(TODO_SERVER_PATH + "/logout")
 
 		if err != nil {
@@ -181,62 +157,15 @@ var createCmd = &cobra.Command{
 	Short: "Create a new user",
 	Args:  cobra.ExactArgs(1),
 	Run: func(cmd *cobra.Command, args []string) {
-		// // Load the token from the file
-		// // token, err := utils.LoadTokenFromFile()
-		// // if err != nil {
-		// // 	fmt.Println("You need to log in first.")
-		// // 	return
-		// // }
-		// db.ConnectMongoDB()
-		// ctx := context.Background()
-		// collection := db.GetCollection("go-todo-db", "user")
-		// token, err := getTokenFromMongoDB(ctx, collection)
-		// if err != nil {
-		// 	fmt.Println("User created:", err)
-		// 	return
-		// }
-		// Load the .env file
-		// err := godotenv.Load()
-		// if err != nil {
-		// 	log.Fatal("Error loading .env file")
-		// }
-
-		// // MongoDB URI and options
-		// mongoURI := os.Getenv("MONGODB_URI")
-		clientOptions := options.Client().ApplyURI(MONGODB_URI)
-
-		// Create a MongoDB client
-		client, err := mongo.Connect(context.TODO(), clientOptions)
+		token, err := GetTokenForUser(cmd)
 		if err != nil {
-			log.Fatal(err)
+			log.Fatalf("Failed to get token: %v", err)
 		}
 
-		// Disconnect client at the end
-		defer func() {
-			if err := client.Disconnect(context.TODO()); err != nil {
-				log.Fatal(err)
-			}
-		}()
-
-		// Connect to the database and collection
-		collection := client.Database("go-todo-db").Collection("tokens")
-
-		// Query the token
-		var result struct {
-			Token string `bson:"token"`
-		}
-
-		// Find one document
-		err = collection.FindOne(context.TODO(), bson.M{}).Decode(&result)
-		if err != nil {
-			log.Fatal(err)
-		}
-
-		// Create a new Resty client
-
-		client2 := resty.New()
-		resp, err := client2.R().
-			SetHeader("Authorization", "Bearer "+result.Token). // Set the token for authorization
+		// Create a new Resty Client
+		restyClient := resty.New()
+		resp, err := restyClient.R().
+			SetHeader("Authorization", "Bearer "+token). // Set the token for authorization
 			SetBody(args[0]).
 			Post(TODO_SERVER_PATH + "/todos")
 		if err != nil {
@@ -252,55 +181,15 @@ var getCmd = &cobra.Command{
 	Short: "Get a user by ID",
 	Args:  cobra.ExactArgs(1),
 	Run: func(cmd *cobra.Command, args []string) {
-		// Load the token from the file
-		// token, err := utils.LoadTokenFromFile()
-		// if err != nil {
-		// 	fmt.Println("You need to log in first.")
-		// 	return
-		// }
-		// client := resty.New()
-
-		// err := godotenv.Load()
-		// if err != nil {
-		// 	log.Fatal("Error loading .env file")
-		// }
-
-		// // MongoDB URI and options
-		// mongoURI := os.Getenv("MONGODB_URI")
-		clientOptions := options.Client().ApplyURI(MONGODB_URI)
-
-		// Create a MongoDB client
-		client, err := mongo.Connect(context.TODO(), clientOptions)
+		token, err := GetTokenForUser(cmd)
 		if err != nil {
-			log.Fatal(err)
+			log.Fatalf("Failed to get token: %v", err)
 		}
 
-		// Disconnect client at the end
-		defer func() {
-			if err := client.Disconnect(context.TODO()); err != nil {
-				log.Fatal(err)
-			}
-		}()
-
-		// Connect to the database and collection
-		collection := client.Database("go-todo-db").Collection("tokens")
-
-		// Query the token
-		var result struct {
-			Token string `bson:"token"`
-		}
-
-		// Find one document
-		err = collection.FindOne(context.TODO(), bson.M{}).Decode(&result)
-		if err != nil {
-			log.Fatal(err)
-		}
-
-		// Create a new Resty client
-
-		client2 := resty.New()
-		resp, err := client2.R().
-			SetHeader("Authorization", "Bearer "+result.Token).
+		// Create a new Resty Client
+		restyClient := resty.New()
+		resp, err := restyClient.R().
+			SetHeader("Authorization", "Bearer "+token).
 			Get(fmt.Sprintf(TODO_SERVER_PATH+"/todos/%s", args[0]))
 		fmt.Println(resp, err)
 		if err != nil {
@@ -316,55 +205,15 @@ var updateCmd = &cobra.Command{
 	Short: "Update a user by ID",
 	Args:  cobra.ExactArgs(2),
 	Run: func(cmd *cobra.Command, args []string) {
-		// Load the token from the file
-		// token, err := utils.LoadTokenFromFile()
-		// if err != nil {
-		// 	fmt.Println("You need to log in first.")
-		// 	return
-		// }
-		// client := resty.New()
-
-		// err := godotenv.Load()
-		// if err != nil {
-		// 	log.Fatal("Error loading .env file")
-		// }
-
-		// // MongoDB URI and options
-		// mongoURI := os.Getenv("MONGODB_URI")
-		clientOptions := options.Client().ApplyURI(MONGODB_URI)
-
-		// Create a MongoDB client
-		client, err := mongo.Connect(context.TODO(), clientOptions)
+		token, err := GetTokenForUser(cmd)
 		if err != nil {
-			log.Fatal(err)
+			log.Fatalf("Failed to get token: %v", err)
 		}
 
-		// Disconnect client at the end
-		defer func() {
-			if err := client.Disconnect(context.TODO()); err != nil {
-				log.Fatal(err)
-			}
-		}()
-
-		// Connect to the database and collection
-		collection := client.Database("go-todo-db").Collection("tokens")
-
-		// Query the token
-		var result struct {
-			Token string `bson:"token"`
-		}
-
-		// Find one document
-		err = collection.FindOne(context.TODO(), bson.M{}).Decode(&result)
-		if err != nil {
-			log.Fatal(err)
-		}
-
-		// Create a new Resty client
-
-		client2 := resty.New()
-		resp, err := client2.R().
-			SetHeader("Authorization", "Bearer "+result.Token).
+		// Create a new Resty Client
+		restyClient := resty.New()
+		resp, err := restyClient.R().
+			SetHeader("Authorization", "Bearer "+token).
 			SetBody(args[1]).
 			Put(fmt.Sprintf(TODO_SERVER_PATH+"/todos/%s", args[0]))
 		if err != nil {
@@ -380,55 +229,15 @@ var deleteCmd = &cobra.Command{
 	Short: "Delete a user by ID",
 	Args:  cobra.ExactArgs(1),
 	Run: func(cmd *cobra.Command, args []string) {
-		// Load the token from the file
-		// token, err := utils.LoadTokenFromFile()
-		// if err != nil {
-		// 	fmt.Println("You need to log in first.")
-		// 	return
-		// }
-		// client := resty.New()
-
-		// err := godotenv.Load()
-		// if err != nil {
-		// 	log.Fatal("Error loading .env file")
-		// }
-
-		// // MongoDB URI and options
-		// mongoURI := os.Getenv("MONGODB_URI")
-		clientOptions := options.Client().ApplyURI(MONGODB_URI)
-
-		// Create a MongoDB client
-		client, err := mongo.Connect(context.TODO(), clientOptions)
+		token, err := GetTokenForUser(cmd)
 		if err != nil {
-			log.Fatal(err)
+			log.Fatalf("Failed to get token: %v", err)
 		}
 
-		// Disconnect client at the end
-		defer func() {
-			if err := client.Disconnect(context.TODO()); err != nil {
-				log.Fatal(err)
-			}
-		}()
-
-		// Connect to the database and collection
-		collection := client.Database("go-todo-db").Collection("tokens")
-
-		// Query the token
-		var result struct {
-			Token string `bson:"token"`
-		}
-
-		// Find one document
-		err = collection.FindOne(context.TODO(), bson.M{}).Decode(&result)
-		if err != nil {
-			log.Fatal(err)
-		}
-
-		// Create a new Resty client
-
-		client2 := resty.New()
-		resp, err := client2.R().
-			SetHeader("Authorization", "Bearer "+result.Token).
+		// Create a new Resty Client
+		restyClient := resty.New()
+		resp, err := restyClient.R().
+			SetHeader("Authorization", "Bearer "+token).
 			Delete(fmt.Sprintf(TODO_SERVER_PATH+"/todos/%s", args[0]))
 		if err != nil {
 			fmt.Println("Error:", err)
@@ -439,62 +248,20 @@ var deleteCmd = &cobra.Command{
 }
 
 // getCmd represents the get command
-var getCmdAll = &cobra.Command{
+var getAllCmd = &cobra.Command{
 	Use:   "get",
 	Short: "Fetch all todos",
 	Run: func(cmd *cobra.Command, args []string) {
-		// Load the token from the file
-		// token, err := utils.LoadTokenFromFile()
-		// if err != nil {
-		// 	fmt.Println("You need to log in first.")
-		// 	return
-		// }
-		// // Create a Resty client
-		// client := resty.New()
-
-		// err := godotenv.Load()
-		// if err != nil {
-		// 	log.Fatal("Error loading .env file")
-		// }
-
-		// // MongoDB URI and options
-		// mongoURI := os.Getenv("MONGODB_URI")
-		clientOptions := options.Client().ApplyURI(MONGODB_URI)
-
-		// Create a MongoDB client
-		client, err := mongo.Connect(context.TODO(), clientOptions)
+		token, err := GetTokenForUser(cmd)
 		if err != nil {
-			log.Fatal(err)
+			log.Fatalf("Failed to get token: %v", err)
 		}
 
-		// Disconnect client at the end
-		defer func() {
-			if err := client.Disconnect(context.TODO()); err != nil {
-				log.Fatal(err)
-			}
-		}()
-
-		// Connect to the database and collection
-		collection := client.Database("go-todo-db").Collection("tokens")
-
-		// Query the token
-		var result struct {
-			Token string `bson:"token"`
-		}
-
-		// Find one document
-		err = collection.FindOne(context.TODO(), bson.M{}).Decode(&result)
-		if err != nil {
-			log.Fatal(err)
-		}
-
-		// Create a new Resty client
-
-		client2 := resty.New()
-
+		// Create a new Resty Client
+		restyClient := resty.New()
 		// Send GET request to the API server
-		resp, err := client2.R().
-			SetHeader("Authorization", "Bearer "+result.Token). // Set the token for authorization
+		resp, err := restyClient.R().
+			SetHeader("Authorization", "Bearer "+token). // Set the token for authorization
 			Get(TODO_SERVER_PATH + "/todos")
 
 		if err != nil {
@@ -505,16 +272,4 @@ var getCmdAll = &cobra.Command{
 		// Print the response
 		fmt.Println(string(resp.Body()))
 	},
-}
-
-func init() {
-	RootCmd.AddCommand(registerCmd) // Add register command
-	RootCmd.AddCommand(loginCmd)    // Add login command
-	RootCmd.AddCommand(logoutCmd)
-
-	RootCmd.AddCommand(createCmd)
-	RootCmd.AddCommand(getCmd)
-	RootCmd.AddCommand(updateCmd)
-	RootCmd.AddCommand(deleteCmd)
-	RootCmd.AddCommand(getCmdAll)
 }
