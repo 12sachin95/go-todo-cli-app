@@ -32,6 +32,7 @@ var userID string
 
 func init() {
 
+	// add the groups of comnads
 	RootCmd.AddCommand(userCmd)
 	RootCmd.AddCommand(todoCmd)
 
@@ -42,6 +43,13 @@ func init() {
 	logoutCmd.Flags().String("user_id", "", "User ID to get the token for")
 	logoutCmd.MarkFlagRequired("user_id")
 	userCmd.AddCommand(logoutCmd)
+
+	// Register the getToken command
+	userCmd.AddCommand(getTokenCmd)
+
+	// Define the --user_id flag
+	getTokenCmd.Flags().String("user_id", "", "User ID to get the token for")
+	getTokenCmd.MarkFlagRequired("user_id")
 
 	// Define the --user_id flag as a persistent flag for the `todoCmd` group
 	todoCmd.PersistentFlags().StringVar(&userID, "user_id", "", "User ID to perform actions on todos")
@@ -115,7 +123,7 @@ var loginCmd = &cobra.Command{
 		}
 
 		if resp.StatusCode() == 200 {
-			fmt.Printf("Logged in! Token: %s\n", resp.String())
+			fmt.Printf("Logged in! ")
 		} else {
 			fmt.Println("Login failed:", resp.String())
 		}
@@ -191,7 +199,7 @@ var getCmd = &cobra.Command{
 		resp, err := restyClient.R().
 			SetHeader("Authorization", "Bearer "+token).
 			Get(fmt.Sprintf(TODO_SERVER_PATH+"/todos/%s", args[0]))
-		fmt.Println(resp, err)
+
 		if err != nil {
 			fmt.Println("Error:", err)
 		} else {
@@ -271,5 +279,24 @@ var getAllCmd = &cobra.Command{
 
 		// Print the response
 		fmt.Println(string(resp.Body()))
+	},
+}
+
+// Define the 'getToken' command
+var getTokenCmd = &cobra.Command{
+	Use:   "getToken",
+	Short: "Get a token for a specific user",
+	Run: func(cmd *cobra.Command, args []string) {
+		userID, err := cmd.Flags().GetString("user_id")
+		if err != nil {
+			log.Fatalf("Error reading user_id flag: %v", err)
+		}
+
+		token, err := db.GetTokenByUserID(userID)
+		if err != nil {
+			log.Fatalf("Error retrieving token: %v", err)
+		}
+
+		fmt.Printf("Token for user %s: %s\n", userID, token)
 	},
 }
