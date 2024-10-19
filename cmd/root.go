@@ -2,10 +2,35 @@ package cmd
 
 import (
 	"fmt"
+	"log"
 	"os"
 
+	"github.com/joho/godotenv"
 	"github.com/spf13/cobra"
 )
+
+// Declare global variables
+var (
+	MONGODB_URI      string
+	TODO_SERVER_PATH string
+)
+
+func init() {
+	// Load environment variables from the .env file
+	err := godotenv.Load()
+	if err != nil {
+		log.Fatalf("Error loading .env file")
+	}
+
+	// Initialize global variables
+	MONGODB_URI = os.Getenv("MONGODB_URI")
+	TODO_SERVER_PATH = os.Getenv("TODO_SERVER_PATH")
+
+	// Check if environment variables are set
+	if MONGODB_URI == "" || TODO_SERVER_PATH == "" {
+		log.Fatal("Environment variables MONGODB_URI or TODO_SERVER_PATH are not set")
+	}
+}
 
 // RootCmd is the base command for the CLI
 var RootCmd = &cobra.Command{

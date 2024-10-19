@@ -1,52 +1,4 @@
-package api
-
-// import (
-// 	"errors"
-// 	"time"
-
-// 	"github.com/dgrijalva/jwt-go"
-// )
-
-// // User struct
-// type User struct {
-// 	Username string `json:"username"`
-// 	Password string `json:"password"`
-// }
-
-// // User store
-// var users = make(map[string]string) // Simple map to store users
-
-// // Secret key for signing JWT
-// var secretKey = []byte("your_secret_key")
-
-// // GenerateJWT generates a JWT token
-// func GenerateJWT(username string) (string, error) {
-// 	claims := jwt.MapClaims{
-// 		"username": username,
-// 		"exp":      time.Now().Add(time.Hour * 72).Unix(),
-// 	}
-// 	token := jwt.NewWithClaims(jwt.SigningMethodHS256, claims)
-// 	return token.SignedString(secretKey)
-// }
-
-// // Register a new user
-// func Register(username, password string) error {
-// 	if _, exists := users[username]; exists {
-// 		return errors.New("user already exists")
-// 	}
-// 	users[username] = password
-// 	return nil
-// }
-
-// // Authenticate user credentials and return a JWT token
-// func Authenticate(username, password string) (string, error) {
-// 	if storedPassword, exists := users[username]; exists && storedPassword == password {
-// 		return GenerateJWT(username)
-// 	}
-// 	return "", errors.New("invalid credentials")
-// }
-
-// package services
+package services
 
 import (
 	"context"
@@ -59,21 +11,46 @@ import (
 	"github.com/dgrijalva/jwt-go"
 	"go.mongodb.org/mongo-driver/bson"
 	"go.mongodb.org/mongo-driver/bson/primitive"
+	"go.mongodb.org/mongo-driver/mongo"
 	"golang.org/x/crypto/bcrypt"
 )
 
+type Token struct {
+	Token string `bson:"token"`
+	// Add other fields as needed (e.g., expiration time, user ID)
+}
+
+// func generateToken(claims jwt.MapClaims) (string, error) {
+// 	// Set token expiration time
+// 	claims["exp"] = time.Now().Add(time.Hour * 24).Unix() // Adjust expiration as needed
+
+// 	// Create a new JWT token
+// 	token := jwt.NewWithClaims(jwt.SigningMethodHS256, claims)
+
+// 	// Sign the token with a secret key
+// 	return token.SignedString([]byte("your-secret-key")) // Replace with a secure secret
+// }
+// func saveTokenToMongoDB(ctx context.Context, collection *mongo.Collection, token string) error {
+// 	// Create a token document
+// 	tokenDoc := Token{
+// 		Token: token,
+// 		// Add other fields if needed
+// 	}
+
+// 	// Insert the token document into the collection
+// 	_, err := collection.InsertOne(ctx, tokenDoc)
+// 	if err != nil {
+// 		return err
+// 	}
+
+// 	return nil
+// }
+
 // RegisterUser adds a new user to MongoDB
-func Register(username, password string) error {
+func RegisterUser(username, password string) (*mongo.InsertOneResult, error) {
 	collection := db.GetCollection("go-todo-db", "users")
 	ctx, cancel := context.WithTimeout(context.Background(), 10*time.Second)
 	defer cancel()
-
-	// Check if username already exists
-	var existingUser models.User
-	err := collection.FindOne(ctx, bson.M{"username": username}).Decode(&existingUser)
-	if err == nil {
-		return errors.New("username already exists")
-	}
 
 	// Hash the password before storing
 	passwordHash, _ := bcrypt.GenerateFromPassword([]byte(password), bcrypt.DefaultCost)
@@ -84,14 +61,15 @@ func Register(username, password string) error {
 		Password: string(passwordHash),
 	}
 
-	_, err = collection.InsertOne(ctx, user)
-	return err
+	result, err := collection.InsertOne(ctx, user)
+	if err != nil {
+		return nil, err
+	}
+	return result, nil
 }
 
-// var jwtSecret = []byte("your_secret_key")
-
 // AuthenticateUser authenticates a user and returns a JWT token
-func Authenticate(username, password string) (string, error) {
+func AuthenticateUser(username, password string) (string, error) {
 	collection := db.GetCollection("go-todo-db", "users")
 	ctx, cancel := context.WithTimeout(context.Background(), 10*time.Second)
 	defer cancel()
@@ -114,15 +92,23 @@ func Authenticate(username, password string) (string, error) {
 		"user_id": user.ID.Hex(),
 		"exp":     time.Now().Add(time.Hour * 72).Unix(),
 	})
-
 	tokenString, err := token.SignedString(jwtSecret)
 	if err != nil {
 		return "", err
 	}
-
 	// Store the token in MongoDB for future validation (optional, used for logout)
 	tokensCollection := db.GetCollection("go-todo-db", "tokens")
 	tokensCollection.InsertOne(ctx, bson.M{"token": tokenString})
 
 	return tokenString, nil
+}
+
+// LogoutUser invalidates the JWT token by deleting it from MongoDB
+func LogoutUser(tokenString string) error {
+	collection := db.GetCollection("go-todo-db", "tokens")
+	ctx, cancel := context.WithTimeout(context.Background(), 10*time.Second)
+	defer cancel()
+
+	_, err := collection.DeleteOne(ctx, bson.M{"token": tokenString})
+	return err
 }
