@@ -8,6 +8,9 @@ import (
 	"net/http"
 	"os"
 	"strings"
+	"time"
+
+	"go.mongodb.org/mongo-driver/bson/primitive"
 
 	"github.com/gin-gonic/gin"
 	"github.com/joho/godotenv"
@@ -25,11 +28,11 @@ func TodoRoutes(router *gin.RouterGroup) {
 	protected := router.Group("/todos")
 	protected.Use(AuthMiddleware())
 	{
-		protected.GET("/", getAllTodos)
-		protected.GET("/:id", getTodo)
-		protected.PUT("/:id", updateTodo)
-		protected.POST("/", createTodo)
-		protected.DELETE("/:id", deleteTodo)
+		protected.GET("/", ExtractUserIDFromJWT, getAllTodos)
+		protected.GET("/:id", ExtractUserIDFromJWT, getTodo)
+		protected.PUT("/:id", ExtractUserIDFromJWT, updateTodo)
+		protected.POST("/", ExtractUserIDFromJWT, createTodo)
+		protected.DELETE("/:id", ExtractUserIDFromJWT, deleteTodo)
 	}
 
 }
@@ -68,13 +71,14 @@ func register(c *gin.Context) {
 	var user struct {
 		Username string `json:"username"`
 		Password string `json:"password"`
+		Email    string `json:"email"`
 	}
 	if err := c.ShouldBindJSON(&user); err != nil {
 		c.JSON(http.StatusBadRequest, gin.H{"error": "Invalid data"})
 		return
 	}
 
-	_, err := services.RegisterUser(user.Username, user.Password)
+	_, err := services.RegisterUser(user.Username, user.Password, user.Email)
 	if err != nil {
 		c.JSON(http.StatusConflict, gin.H{"error": err.Error()})
 		return
@@ -126,13 +130,53 @@ func getUserDetails(c *gin.Context) {
 }
 
 func getAllTodos(c *gin.Context) {
-	todos, _ := services.GetTodos() // Get todos from service layer
+	// Get the userID from the context
+	userID, exists := c.Get("userID")
+	if !exists {
+		c.JSON(http.StatusUnauthorized, gin.H{"error": "Unauthorized"})
+		return
+	}
+	// Assert userID to be a string
+	userIDStr, ok := userID.(string)
+	if !ok {
+		c.JSON(http.StatusInternalServerError, gin.H{"error": "Error asserting userID to string"})
+		return
+	}
+
+	// Convert the string userID to a primitive.ObjectID
+	objUserID, err := primitive.ObjectIDFromHex(userIDStr)
+	if err != nil {
+		c.JSON(http.StatusBadRequest, gin.H{"error": "Invalid userID format"})
+		return
+	}
+
+	todos, _ := services.GetTodos(objUserID) // Get todos from service layer
 	c.JSON(http.StatusOK, todos)
 }
 
 func getTodo(c *gin.Context) {
+	// Get the userID from the context
+	userID, exists := c.Get("userID")
+	if !exists {
+		c.JSON(http.StatusUnauthorized, gin.H{"error": "Unauthorized"})
+		return
+	}
+	// Assert userID to be a string
+	userIDStr, ok := userID.(string)
+	if !ok {
+		c.JSON(http.StatusInternalServerError, gin.H{"error": "Error asserting userID to string"})
+		return
+	}
+
+	// Convert the string userID to a primitive.ObjectID
+	objUserID, err := primitive.ObjectIDFromHex(userIDStr)
+	if err != nil {
+		c.JSON(http.StatusBadRequest, gin.H{"error": "Invalid userID format"})
+		return
+	}
+
 	idStr := c.Param("id")
-	todos, err2 := services.GetTodoByID(idStr) // Get todos from service layer
+	todos, err2 := services.GetTodoByID(idStr, objUserID) // Get todos from service layer
 	if err2 != nil {
 		c.JSON(http.StatusBadRequest, err2)
 		return
@@ -147,7 +191,32 @@ func createTodo(c *gin.Context) {
 		c.JSON(http.StatusBadRequest, gin.H{"error": "Invalid data"})
 		return
 	}
+	// Get the userID from the context
+	userID, exists := c.Get("userID")
+	if !exists {
+		c.JSON(http.StatusUnauthorized, gin.H{"error": "Unauthorized"})
+		return
+	}
+	// Assert userID to be a string
+	userIDStr, ok := userID.(string)
+	if !ok {
+		c.JSON(http.StatusInternalServerError, gin.H{"error": "Error asserting userID to string"})
+		return
+	}
+
+	// Convert the string userID to a primitive.ObjectID
+	objUserID, err := primitive.ObjectIDFromHex(userIDStr)
+	if err != nil {
+		c.JSON(http.StatusBadRequest, gin.H{"error": "Invalid userID format"})
+		return
+	}
+
 	todoToAdd := models.Todo{Title: newTodo.Title}
+	todoToAdd.ID = primitive.NewObjectID()
+	todoToAdd.CreatedAt = time.Now()
+	todoToAdd.UpdatedAt = time.Now()
+	todoToAdd.UserID = objUserID
+
 	result, err := services.AddTodo(todoToAdd)
 	if err != nil {
 		c.JSON(http.StatusBadRequest, gin.H{"error": err})
@@ -164,7 +233,28 @@ func updateTodo(c *gin.Context) {
 		return
 	}
 
-	result, err := services.UpdateTodo(idStr, newTodo)
+	newTodo.UpdatedAt = time.Now()
+	// Get the userID from the context
+	userID, exists := c.Get("userID")
+	if !exists {
+		c.JSON(http.StatusUnauthorized, gin.H{"error": "Unauthorized"})
+		return
+	}
+	// Assert userID to be a string
+	userIDStr, ok := userID.(string)
+	if !ok {
+		c.JSON(http.StatusInternalServerError, gin.H{"error": "Error asserting userID to string"})
+		return
+	}
+
+	// Convert the string userID to a primitive.ObjectID
+	objUserID, err := primitive.ObjectIDFromHex(userIDStr)
+	if err != nil {
+		c.JSON(http.StatusBadRequest, gin.H{"error": "Invalid userID format"})
+		return
+	}
+
+	result, err := services.UpdateTodo(idStr, objUserID, newTodo)
 	if err != nil {
 		c.JSON(http.StatusBadRequest, gin.H{"error": err})
 		return
@@ -174,8 +264,29 @@ func updateTodo(c *gin.Context) {
 
 func deleteTodo(c *gin.Context) {
 	idStr := c.Param("id")
-	_, err := services.DeleteTodo(idStr)
+
+	// Get the userID from the context
+	userID, exists := c.Get("userID")
+	if !exists {
+		c.JSON(http.StatusUnauthorized, gin.H{"error": "Unauthorized"})
+		return
+	}
+	// Assert userID to be a string
+	userIDStr, ok := userID.(string)
+	if !ok {
+		c.JSON(http.StatusInternalServerError, gin.H{"error": "Error asserting userID to string"})
+		return
+	}
+
+	// Convert the string userID to a primitive.ObjectID
+	objUserID, err := primitive.ObjectIDFromHex(userIDStr)
 	if err != nil {
+		c.JSON(http.StatusBadRequest, gin.H{"error": "Invalid userID format"})
+		return
+	}
+
+	_, err2 := services.DeleteTodo(idStr, objUserID)
+	if err2 != nil {
 		c.JSON(http.StatusNotFound, gin.H{"error": "Todo not found"})
 		return
 	}

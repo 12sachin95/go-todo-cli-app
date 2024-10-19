@@ -14,11 +14,11 @@ import (
 
 // AddTodo adds a new todo to the MongoDB
 func AddTodo(todo models.Todo) (*mongo.InsertOneResult, error) {
+
 	collection := db.GetCollection("go-todo-db", "todos")
 	ctx, cancel := context.WithTimeout(context.Background(), 10*time.Second)
 	defer cancel()
 
-	todo.ID = primitive.NewObjectID()
 	result, err := collection.InsertOne(ctx, todo)
 	if err != nil {
 		log.Fatal(err)
@@ -28,12 +28,14 @@ func AddTodo(todo models.Todo) (*mongo.InsertOneResult, error) {
 }
 
 // GetTodos retrieves all todos from MongoDB
-func GetTodos() ([]models.Todo, error) {
+func GetTodos(userId primitive.ObjectID) ([]models.Todo, error) {
 	collection := db.GetCollection("go-todo-db", "todos")
 	ctx, cancel := context.WithTimeout(context.Background(), 10*time.Second)
 	defer cancel()
 
-	cursor, err := collection.Find(ctx, bson.M{})
+	filter := bson.M{"user_id": userId}
+
+	cursor, err := collection.Find(ctx, filter)
 	if err != nil {
 		log.Fatal(err)
 		return nil, err
@@ -54,14 +56,14 @@ func GetTodos() ([]models.Todo, error) {
 }
 
 // GetTodoByID retrieves a todo by its ID
-func GetTodoByID(id string) (models.Todo, error) {
+func GetTodoByID(id string, userId primitive.ObjectID) (models.Todo, error) {
 	collection := db.GetCollection("go-todo-db", "todos")
 	ctx, cancel := context.WithTimeout(context.Background(), 10*time.Second)
 	defer cancel()
 
 	objectID, _ := primitive.ObjectIDFromHex(id)
 	var todo models.Todo
-	err := collection.FindOne(ctx, bson.M{"_id": objectID}).Decode(&todo)
+	err := collection.FindOne(ctx, bson.M{"_id": objectID, "user_id": userId}).Decode(&todo)
 	if err != nil {
 		return todo, err
 	}
@@ -69,14 +71,16 @@ func GetTodoByID(id string) (models.Todo, error) {
 }
 
 // UpdateTodo updates an existing todo in MongoDB
-func UpdateTodo(id string, updatedTodo models.Todo) (*mongo.UpdateResult, error) {
+func UpdateTodo(id string, userId primitive.ObjectID, updatedTodo models.Todo) (*mongo.UpdateResult, error) {
 	collection := db.GetCollection("go-todo-db", "todos")
 	ctx, cancel := context.WithTimeout(context.Background(), 10*time.Second)
 	defer cancel()
 
 	objectID, _ := primitive.ObjectIDFromHex(id)
-	filter := bson.M{"_id": objectID}
-	update := bson.M{"$set": bson.M{"title": updatedTodo.Title}}
+	filter := bson.M{"_id": objectID, "user_id": userId}
+	update := bson.M{"$set": bson.M{"title": updatedTodo.Title,
+		"completed":  updatedTodo.Completed,
+		"updated_at": updatedTodo.UpdatedAt}}
 
 	result, err := collection.UpdateOne(ctx, filter, update)
 	if err != nil {
@@ -86,13 +90,13 @@ func UpdateTodo(id string, updatedTodo models.Todo) (*mongo.UpdateResult, error)
 }
 
 // DeleteTodo deletes a todo by its ID from MongoDB
-func DeleteTodo(id string) (*mongo.DeleteResult, error) {
+func DeleteTodo(id string, userId primitive.ObjectID) (*mongo.DeleteResult, error) {
 	collection := db.GetCollection("go-todo-db", "todos")
 	ctx, cancel := context.WithTimeout(context.Background(), 10*time.Second)
 	defer cancel()
 
 	objectID, _ := primitive.ObjectIDFromHex(id)
-	result, err := collection.DeleteOne(ctx, bson.M{"_id": objectID})
+	result, err := collection.DeleteOne(ctx, bson.M{"_id": objectID, "user_id": userId})
 	if err != nil {
 		return nil, err
 	}

@@ -18,10 +18,11 @@ import (
 type UserResponse struct {
 	ID       string `json:"id"`
 	Username string `json:"username"`
+	Email    string `json:"email"`
 }
 
 // RegisterUser adds a new user to MongoDB
-func RegisterUser(username, password string) (*mongo.InsertOneResult, error) {
+func RegisterUser(username, password, email string) (*mongo.InsertOneResult, error) {
 	collection := db.GetCollection("go-todo-db", "users")
 	ctx, cancel := context.WithTimeout(context.Background(), 10*time.Second)
 	defer cancel()
@@ -33,6 +34,7 @@ func RegisterUser(username, password string) (*mongo.InsertOneResult, error) {
 		ID:       primitive.NewObjectID(),
 		Username: username,
 		Password: string(passwordHash),
+		Email:    email,
 	}
 
 	result, err := collection.InsertOne(ctx, user)

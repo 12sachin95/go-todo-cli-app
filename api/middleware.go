@@ -59,3 +59,61 @@ func AuthMiddleware() gin.HandlerFunc {
 		c.Next()
 	}
 }
+
+// ExtractUserIDFromJWT extracts user_id from the JWT claims
+func ExtractUserIDFromJWT(c *gin.Context) {
+	var jwtSecret = []byte(os.Getenv("SECRET_KEY")) // Secret key used to sign the JWT
+
+	// Extract the token from the Authorization header
+	authHeader := c.GetHeader("Authorization")
+	if authHeader == "" {
+		c.JSON(http.StatusUnauthorized, gin.H{"error": "Authorization header is required"})
+		c.Abort()
+		return
+	}
+
+	// The token is usually in the format "Bearer <token>", so we split it
+	parts := strings.Split(authHeader, " ")
+	if len(parts) != 2 || parts[0] != "Bearer" {
+		c.JSON(http.StatusUnauthorized, gin.H{"error": "Invalid Authorization header format"})
+		c.Abort()
+		return
+	}
+
+	tokenString := parts[1]
+
+	// Parse the JWT token
+	token, err := jwt.Parse(tokenString, func(token *jwt.Token) (interface{}, error) {
+		// Make sure that the token's signing method is HMAC
+		if _, ok := token.Method.(*jwt.SigningMethodHMAC); !ok {
+			return nil, jwt.NewValidationError("unexpected signing method", jwt.ValidationErrorSignatureInvalid)
+		}
+		return jwtSecret, nil
+	})
+
+	if err != nil || !token.Valid {
+		c.JSON(http.StatusUnauthorized, gin.H{"error": "Invalid token"})
+		c.Abort()
+		return
+	}
+
+	// Extract claims from the token
+	claims, ok := token.Claims.(jwt.MapClaims)
+	if !ok {
+		c.JSON(http.StatusUnauthorized, gin.H{"error": "Unable to extract claims"})
+		c.Abort()
+		return
+	}
+
+	// Extract the user_id from the claims
+	userID, ok := claims["user_id"].(string)
+	if !ok {
+		c.JSON(http.StatusUnauthorized, gin.H{"error": "user_id not found in token"})
+		c.Abort()
+		return
+	}
+
+	// Pass the userID to the context so it can be accessed in other handlers
+	c.Set("userID", userID)
+	c.Next() // Pass control to the next handler
+}
