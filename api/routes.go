@@ -18,6 +18,7 @@ func AuthRoutes(router *gin.RouterGroup) {
 	userRoutes.POST("/register", register)
 	userRoutes.POST("/login", login)
 	userRoutes.POST("/logout", logout)
+	userRoutes.GET("/details/:id", getUserDetails)
 }
 
 func TodoRoutes(router *gin.RouterGroup) {
@@ -112,6 +113,16 @@ func logout(c *gin.Context) {
 	}
 
 	c.JSON(http.StatusOK, gin.H{"message": "Logged out"})
+}
+
+func getUserDetails(c *gin.Context) {
+	idStr := c.Param("id")
+	userDetails, err := services.GetUserDetails(idStr) // Get userDetails from service layer
+	if err != nil {
+		c.JSON(http.StatusBadRequest, err)
+		return
+	}
+	c.JSON(http.StatusOK, userDetails)
 }
 
 func getAllTodos(c *gin.Context) {

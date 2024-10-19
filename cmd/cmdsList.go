@@ -44,6 +44,11 @@ func init() {
 	logoutCmd.MarkFlagRequired("user_id")
 	userCmd.AddCommand(logoutCmd)
 
+	// Define the --user_id flag as a persistent flag foronly logout cmd in user group
+	userDetailsCmd.Flags().String("user_id", "", "User ID to get the token for")
+	userDetailsCmd.MarkFlagRequired("user_id")
+	userCmd.AddCommand(userDetailsCmd)
+
 	// Register the getToken command
 	userCmd.AddCommand(getTokenCmd)
 
@@ -71,6 +76,23 @@ func GetTokenForUser(cmd *cobra.Command) (string, error) {
 
 	// Fetch the token from MongoDB using the user_id
 	token, err := db.GetTokenByUserID(userID)
+	if err != nil {
+		log.Fatalf("Error retrieving token for user_id %s: %v", userID, err)
+	}
+
+	return token, nil
+}
+
+// GetTokenForUser retrieves the token for a given user_id from the command flags
+func GetTokenDetails(cmd *cobra.Command) (db.TokenData, error) {
+	// Get the user_id from the command flag
+	userID, err := cmd.Flags().GetString("user_id")
+	if err != nil {
+		log.Fatalf("Error reading user_id flag: %v", err)
+	}
+
+	// Fetch the token from MongoDB using the user_id
+	token, err := db.GetTokenDetailsByUserID(userID)
 	if err != nil {
 		log.Fatalf("Error retrieving token for user_id %s: %v", userID, err)
 	}
@@ -126,6 +148,35 @@ var loginCmd = &cobra.Command{
 			fmt.Printf("Logged in! ")
 		} else {
 			fmt.Println("Login failed:", resp.String())
+		}
+	},
+}
+
+var userDetailsCmd = &cobra.Command{
+	Use:   "details",
+	Short: "Get user details",
+	Run: func(cmd *cobra.Command, args []string) {
+		tokenDetails, err := GetTokenDetails(cmd)
+		if err != nil {
+			log.Fatalf("Failed to get user token: %v", err)
+		}
+
+		if err != nil {
+			log.Fatalf("Error reading user_id flag: %v", err)
+		}
+		// Create a new Resty Client
+		restyClient := resty.New()
+
+		apiURL := fmt.Sprintf("/user/details/%s", tokenDetails.UserID)
+
+		resp, err := restyClient.R().
+			SetHeader("Authorization", "Bearer "+tokenDetails.Token).
+			Get(fmt.Sprintf(TODO_SERVER_PATH + apiURL))
+
+		if err != nil {
+			fmt.Println("Error:", err)
+		} else {
+			fmt.Println("User details:", resp.String())
 		}
 	},
 }

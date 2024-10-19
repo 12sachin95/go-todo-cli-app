@@ -103,3 +103,29 @@ func GetTokenByUserID(userID string) (string, error) {
 	}
 	return result.Token, nil
 }
+
+// GetTokenByUserID details from MongoDB
+func GetTokenDetailsByUserID(userID string) (TokenData, error) {
+	client, err := GetMongoClient()
+	if err != nil {
+		return TokenData{}, fmt.Errorf("failed to connect to MongoDB: %v", err)
+	}
+
+	defer client.Disconnect(context.TODO())
+
+	collection := client.Database(os.Getenv("DATABASE_NAME")).Collection("tokens") // Replace "mydb" and "tokens" with your DB and collection names
+
+	var result TokenData
+	filter := bson.M{"user_id": userID}
+
+	err = collection.FindOne(context.TODO(), filter).Decode(&result)
+	if err != nil {
+		return TokenData{}, fmt.Errorf("error finding token: %v", err)
+	}
+
+	// Check if the token is expired
+	if time.Now().Unix() > result.Exp {
+		return TokenData{}, fmt.Errorf("token has expired")
+	}
+	return result, nil
+}

@@ -15,10 +15,10 @@ import (
 	"golang.org/x/crypto/bcrypt"
 )
 
-// type Token struct {
-// 	Token string `bson:"token"`
-// 	// Add other fields as needed (e.g., expiration time, user ID)
-// }
+type UserResponse struct {
+	ID       string `json:"id"`
+	Username string `json:"username"`
+}
 
 // RegisterUser adds a new user to MongoDB
 func RegisterUser(username, password string) (*mongo.InsertOneResult, error) {
@@ -87,4 +87,19 @@ func LogoutUser(tokenString string) error {
 
 	_, err := collection.DeleteOne(ctx, bson.M{"token": tokenString})
 	return err
+}
+
+// GetTodoByID retrieves a todo by its ID
+func GetUserDetails(id string) (UserResponse, error) {
+	collection := db.GetCollection("go-todo-db", "users")
+	ctx, cancel := context.WithTimeout(context.Background(), 10*time.Second)
+	defer cancel()
+
+	objectID, _ := primitive.ObjectIDFromHex(id)
+	var user UserResponse
+	err := collection.FindOne(ctx, bson.M{"_id": objectID}).Decode(&user)
+	if err != nil {
+		return user, err
+	}
+	return user, nil
 }
