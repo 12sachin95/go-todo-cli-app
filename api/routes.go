@@ -13,21 +13,22 @@ import (
 	"github.com/joho/godotenv"
 )
 
-func AuthRoutes(router *gin.Engine) {
-	router.POST("/register", register)
-	router.POST("/login", login)
-	router.POST("/logout", logout)
+func AuthRoutes(router *gin.RouterGroup) {
+	userRoutes := router.Group("/user")
+	userRoutes.POST("/register", register)
+	userRoutes.POST("/login", login)
+	userRoutes.POST("/logout", logout)
 }
 
-func TodoRoutes(router *gin.Engine) {
-	protected := router.Group("/")
+func TodoRoutes(router *gin.RouterGroup) {
+	protected := router.Group("/todos")
 	protected.Use(AuthMiddleware())
 	{
-		protected.GET("/todos", getAllTodos)
-		protected.GET("/todos/:id", getTodo)
-		protected.PUT("/todos/:id", updateTodo)
-		protected.POST("/todos", createTodo)
-		protected.DELETE("/todos/:id", deleteTodo)
+		protected.GET("/", getAllTodos)
+		protected.GET("/:id", getTodo)
+		protected.PUT("/:id", updateTodo)
+		protected.POST("/", createTodo)
+		protected.DELETE("/:id", deleteTodo)
 	}
 
 }
@@ -50,9 +51,13 @@ func StartServer() {
 	db.ConnectMongoDB(uri)
 	r := gin.Default()
 
-	// group the routes
-	AuthRoutes(r)
-	TodoRoutes(r)
+	v1 := r.Group("/todo-app/api/v1")
+
+	// grouping all routes with api/v1
+	{
+		AuthRoutes(v1)
+		TodoRoutes(v1)
+	}
 
 	// Start the server on port 8080
 	r.Run(":" + port)

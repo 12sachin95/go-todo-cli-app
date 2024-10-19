@@ -89,7 +89,7 @@ var registerCmd = &cobra.Command{
 
 		resp, err := restyClient.R().
 			SetBody(map[string]string{"username": username, "password": password}).
-			Post(TODO_SERVER_PATH + "/register")
+			Post(TODO_SERVER_PATH + "/user/register")
 
 		if err != nil {
 			fmt.Println("Error:", err)
@@ -115,7 +115,7 @@ var loginCmd = &cobra.Command{
 
 		resp, err := restyClient.R().
 			SetBody(map[string]string{"username": username, "password": password}).
-			Post(TODO_SERVER_PATH + "/login")
+			Post(TODO_SERVER_PATH + "/user/login")
 
 		if err != nil {
 			fmt.Println("Error:", err)
@@ -145,7 +145,7 @@ var logoutCmd = &cobra.Command{
 
 		resp, err := restyClient.R().
 			SetHeader("Authorization", "Bearer "+token).
-			Post(TODO_SERVER_PATH + "/logout")
+			Post(TODO_SERVER_PATH + "/user/logout")
 
 		if err != nil {
 			fmt.Println("Error:", err)
