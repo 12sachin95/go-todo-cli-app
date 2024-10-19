@@ -15,3 +15,10 @@ type Todo struct {
 	CreatedAt time.Time          `bson:"created_at" json:"created_at"`
 	UpdatedAt time.Time          `bson:"updated_at" json:"updated_at"`
 }
+
+// TodoUpdate struct is used to update todo items
+type TodoUpdate struct {
+	Title     string    `json:"title,omitempty"`     // String, optional
+	Completed *bool     `json:"completed,omitempty"` // Pointer to bool, optional
+	UpdatedAt time.Time `json:"updated_at"`
+}

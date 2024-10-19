@@ -71,16 +71,24 @@ func GetTodoByID(id string, userId primitive.ObjectID) (models.Todo, error) {
 }
 
 // UpdateTodo updates an existing todo in MongoDB
-func UpdateTodo(id string, userId primitive.ObjectID, updatedTodo models.Todo) (*mongo.UpdateResult, error) {
+func UpdateTodo(id string, userId primitive.ObjectID, updatedTodo models.TodoUpdate) (*mongo.UpdateResult, error) {
 	collection := db.GetCollection("go-todo-db", "todos")
 	ctx, cancel := context.WithTimeout(context.Background(), 10*time.Second)
 	defer cancel()
 
 	objectID, _ := primitive.ObjectIDFromHex(id)
 	filter := bson.M{"_id": objectID, "user_id": userId}
-	update := bson.M{"$set": bson.M{"title": updatedTodo.Title,
-		"completed":  updatedTodo.Completed,
-		"updated_at": updatedTodo.UpdatedAt}}
+	updateFields := bson.M{
+		"updated_at": updatedTodo.UpdatedAt,
+	}
+	if updatedTodo.Title != "" {
+		updateFields["title"] = updatedTodo.Title
+	}
+	if updatedTodo.Completed != nil {
+		updateFields["completed"] = *updatedTodo.Completed // Dereference the pointer to get the actual bool value
+	}
+
+	update := bson.M{"$set": updateFields}
 
 	result, err := collection.UpdateOne(ctx, filter, update)
 	if err != nil {

@@ -59,11 +59,19 @@ func init() {
 	// Define the --user_id flag as a persistent flag for the `todoCmd` group
 	todoCmd.PersistentFlags().StringVar(&userID, "user_id", "", "User ID to perform actions on todos")
 	todoCmd.MarkPersistentFlagRequired("user_id")
-	todoCmd.AddCommand(createCmd)
-	todoCmd.AddCommand(getCmd)
-	todoCmd.AddCommand(updateCmd)
-	todoCmd.AddCommand(deleteCmd)
-	todoCmd.AddCommand(getAllCmd)
+	var title string
+	var completed bool
+	createTodoCmd.Flags().StringVar(&title, "title", "", "title")
+	createTodoCmd.Flags().BoolVar(&completed, "completed", false, "completed")
+	createTodoCmd.MarkFlagRequired("title")
+	todoCmd.AddCommand(createTodoCmd)
+	todoCmd.AddCommand(getTodoCmd)
+
+	updateTodoCmd.Flags().StringVar(&title, "title", "", "title")
+	updateTodoCmd.Flags().BoolVar(&completed, "completed", false, "completed")
+	todoCmd.AddCommand(updateTodoCmd)
+	todoCmd.AddCommand(deleteTodoCmd)
+	todoCmd.AddCommand(getAllTodoCmd)
 }
 
 // GetTokenForUser retrieves the token for a given user_id from the command flags
@@ -211,22 +219,36 @@ var logoutCmd = &cobra.Command{
 	},
 }
 
-var createCmd = &cobra.Command{
-	Use:   "create [name]",
-	Short: "Create a new user",
-	Args:  cobra.ExactArgs(1),
+var createTodoCmd = &cobra.Command{
+	Use:   "create",
+	Short: "Create a new todo",
 	Run: func(cmd *cobra.Command, args []string) {
 		token, err := GetTokenForUser(cmd)
 		if err != nil {
 			log.Fatalf("Failed to get token: %v", err)
+		}
+		title, err := cmd.Flags().GetString("title")
+		completed, _ := cmd.Flags().GetBool("completed")
+
+		// Check if the flags are provided
+		if err != nil {
+			log.Fatalf("title is required")
+		}
+
+		// Create the request body
+		requestBody := map[string]interface{}{
+			"title":     title,
+			"completed": completed,
 		}
 
 		// Create a new Resty Client
 		restyClient := resty.New()
 		resp, err := restyClient.R().
 			SetHeader("Authorization", "Bearer "+token). // Set the token for authorization
-			SetBody(args[0]).
+			SetHeader("Content-Type", "application/json").
+			SetBody(requestBody). //
 			Post(TODO_SERVER_PATH + "/todos")
+
 		if err != nil {
 			fmt.Println("Error:", err)
 		} else {
@@ -235,9 +257,9 @@ var createCmd = &cobra.Command{
 	},
 }
 
-var getCmd = &cobra.Command{
+var getTodoCmd = &cobra.Command{
 	Use:   "getOne [id]",
-	Short: "Get a user by ID",
+	Short: "Get a todo by ID",
 	Args:  cobra.ExactArgs(1),
 	Run: func(cmd *cobra.Command, args []string) {
 		token, err := GetTokenForUser(cmd)
@@ -259,21 +281,36 @@ var getCmd = &cobra.Command{
 	},
 }
 
-var updateCmd = &cobra.Command{
-	Use:   "update [id] [name]",
-	Short: "Update a user by ID",
-	Args:  cobra.ExactArgs(2),
+var updateTodoCmd = &cobra.Command{
+	Use:   "update [id]",
+	Short: "Update a todo by ID",
+	Args:  cobra.ExactArgs(1),
 	Run: func(cmd *cobra.Command, args []string) {
+
 		token, err := GetTokenForUser(cmd)
 		if err != nil {
 			log.Fatalf("Failed to get token: %v", err)
+		}
+
+		title, _ := cmd.Flags().GetString("title")
+
+		// Create the request body
+		requestBody := map[string]interface{}{}
+		if title != "" {
+			requestBody["title"] = title
+		}
+		// Check if the "completed" flag was explicitly set by the user
+		if cmd.Flags().Changed("completed") {
+			completed, _ := cmd.Flags().GetBool("completed")
+			requestBody["completed"] = completed
 		}
 
 		// Create a new Resty Client
 		restyClient := resty.New()
 		resp, err := restyClient.R().
 			SetHeader("Authorization", "Bearer "+token).
-			SetBody(args[1]).
+			SetHeader("Content-Type", "application/json").
+			SetBody(requestBody).
 			Put(fmt.Sprintf(TODO_SERVER_PATH+"/todos/%s", args[0]))
 		if err != nil {
 			fmt.Println("Error:", err)
@@ -283,9 +320,9 @@ var updateCmd = &cobra.Command{
 	},
 }
 
-var deleteCmd = &cobra.Command{
+var deleteTodoCmd = &cobra.Command{
 	Use:   "delete [id]",
-	Short: "Delete a user by ID",
+	Short: "Delete a todo by ID",
 	Args:  cobra.ExactArgs(1),
 	Run: func(cmd *cobra.Command, args []string) {
 		token, err := GetTokenForUser(cmd)
@@ -306,8 +343,8 @@ var deleteCmd = &cobra.Command{
 	},
 }
 
-// getCmd represents the get command
-var getAllCmd = &cobra.Command{
+// getTodoCmd represents the get command
+var getAllTodoCmd = &cobra.Command{
 	Use:   "get",
 	Short: "Fetch all todos",
 	Run: func(cmd *cobra.Command, args []string) {

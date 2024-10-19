@@ -226,7 +226,7 @@ func createTodo(c *gin.Context) {
 }
 
 func updateTodo(c *gin.Context) {
-	var newTodo models.Todo
+	var newTodo models.TodoUpdate
 	idStr := c.Param("id")
 	if err := c.ShouldBindJSON(&newTodo); err != nil {
 		c.JSON(http.StatusBadRequest, gin.H{"error": "Invalid data"})
