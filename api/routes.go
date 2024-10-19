@@ -13,8 +13,12 @@ import (
 	"go.mongodb.org/mongo-driver/bson/primitive"
 
 	"github.com/gin-gonic/gin"
+	"github.com/go-playground/validator/v10"
 	"github.com/joho/godotenv"
 )
+
+// Initialize a validator instance
+var validate *validator.Validate
 
 func AuthRoutes(router *gin.RouterGroup) {
 	userRoutes := router.Group("/user")
@@ -38,7 +42,7 @@ func TodoRoutes(router *gin.RouterGroup) {
 }
 
 func StartServer() {
-
+	validate = validator.New()
 	// Load the .env file
 	err := godotenv.Load()
 	if err != nil {
@@ -69,12 +73,24 @@ func StartServer() {
 
 func register(c *gin.Context) {
 	var user struct {
-		Username string `json:"username"`
-		Password string `json:"password"`
-		Email    string `json:"email"`
+		Username string `bson:"username" json:"username" validate:"required,min=3,max=32"`
+		Email    string `bson:"email" json:"email" validate:"required,email"`
+		Password string `bson:"password" json:"password" validate:"required,min=3"`
 	}
 	if err := c.ShouldBindJSON(&user); err != nil {
 		c.JSON(http.StatusBadRequest, gin.H{"error": "Invalid data"})
+		return
+	}
+
+	// Validate the user struct
+	if err := validate.Struct(&user); err != nil {
+		// Return validation errors
+		validationErrors := err.(validator.ValidationErrors)
+		errors := make(map[string]string)
+		for _, vErr := range validationErrors {
+			errors[vErr.Field()] = vErr.Tag() // e.g., "required", "email", etc.
+		}
+		c.JSON(http.StatusBadRequest, gin.H{"errors": errors})
 		return
 	}
 
@@ -185,12 +201,24 @@ func getTodo(c *gin.Context) {
 }
 func createTodo(c *gin.Context) {
 	var newTodo struct {
-		Title string `json:"title" binding:"required"` // Require the title field
+		Title string `bson:"title" json:"title" validate:"required,min=1,max=100"`
 	}
 	if err := c.ShouldBindJSON(&newTodo); err != nil {
 		c.JSON(http.StatusBadRequest, gin.H{"error": "Invalid data"})
 		return
 	}
+	// Validate the user struct
+	if err := validate.Struct(&newTodo); err != nil {
+		// Return validation errors
+		validationErrors := err.(validator.ValidationErrors)
+		errors := make(map[string]string)
+		for _, vErr := range validationErrors {
+			errors[vErr.Field()] = vErr.Tag() // e.g., "required", "email", etc.
+		}
+		c.JSON(http.StatusBadRequest, gin.H{"errors": errors})
+		return
+	}
+
 	// Get the userID from the context
 	userID, exists := c.Get("userID")
 	if !exists {
