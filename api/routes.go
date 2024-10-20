@@ -46,7 +46,7 @@ func StartServer() {
 	port := os.Getenv("PORT")
 	uri := os.Getenv("MONGODB_URI")
 	if port == "" {
-		port = "8000" // Default port if not set
+		port = "8080" // Default port if not set
 	}
 
 	db.ConnectMongoDB(uri)
