@@ -7,6 +7,7 @@ import (
 
 	"github.com/joho/godotenv"
 	"github.com/spf13/cobra"
+	"github.com/spf13/viper"
 )
 
 // Declare global variables
@@ -14,6 +15,7 @@ var (
 	MONGODB_URI      string
 	TODO_SERVER_PATH string
 )
+var cfgFile string
 
 func init() {
 	// Load environment variables from the .env file
@@ -30,11 +32,36 @@ func init() {
 	if MONGODB_URI == "" || TODO_SERVER_PATH == "" {
 		log.Fatal("Environment variables MONGODB_URI or TODO_SERVER_PATH are not set")
 	}
+	cobra.OnInitialize(initConfig)
+}
+
+// initConfig reads in config file and ENV variables if set.
+func initConfig() {
+	if cfgFile != "" {
+		// Use config file from the flag.
+		viper.SetConfigFile(cfgFile)
+	} else {
+		// Find home directory.
+		home, err := os.UserHomeDir()
+		cobra.CheckErr(err)
+
+		// Search config in home directory with name ".uzo" (without extension).
+		viper.AddConfigPath(home)
+		viper.SetConfigType("yaml")
+		viper.SetConfigName(".go-todo-cli")
+	}
+
+	viper.AutomaticEnv() // read in environment variables that match
+
+	// If a config file is found, read it in.
+	if err := viper.ReadInConfig(); err == nil {
+		fmt.Fprintln(os.Stderr, "Using config file:", viper.ConfigFileUsed())
+	}
 }
 
 // RootCmd is the base command for the CLI
 var RootCmd = &cobra.Command{
-	Use:   "todo",
+	Use:   "todo-cli",
 	Short: "Todo CLI Application",
 	Long: `Welcome to the Todo CLI!
 

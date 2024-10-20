@@ -1,7 +1,7 @@
 package cmd
 
 import (
-	"go-todo-cli/api"
+	"todo-cli/api"
 
 	"github.com/spf13/cobra"
 )

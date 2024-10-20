@@ -2,8 +2,9 @@ package cmd
 
 import (
 	"fmt"
-	"go-todo-cli/db"
 	"log"
+
+	"todo-cli/db"
 
 	"github.com/go-resty/resty/v2"
 	"github.com/spf13/cobra"

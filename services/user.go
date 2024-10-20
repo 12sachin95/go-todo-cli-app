@@ -3,10 +3,11 @@ package services
 import (
 	"context"
 	"errors"
-	"go-todo-cli/db"
-	"go-todo-cli/models"
 	"os"
 	"time"
+
+	"todo-cli/db"
+	"todo-cli/models"
 
 	"github.com/dgrijalva/jwt-go"
 	"go.mongodb.org/mongo-driver/bson"

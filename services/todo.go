@@ -2,10 +2,11 @@ package services
 
 import (
 	"context"
-	"go-todo-cli/db"
-	"go-todo-cli/models"
 	"log"
 	"time"
+
+	"todo-cli/db"
+	"todo-cli/models"
 
 	"go.mongodb.org/mongo-driver/bson"
 	"go.mongodb.org/mongo-driver/bson/primitive"

@@ -1,13 +1,14 @@
 package api
 
 import (
-	"go-todo-cli/db"
-	"go-todo-cli/models"
-	"go-todo-cli/services"
 	"net/http"
 	"os"
 	"strings"
 	"time"
+
+	"todo-cli/db"
+	"todo-cli/models"
+	"todo-cli/services"
 
 	"go.mongodb.org/mongo-driver/bson/primitive"
 
