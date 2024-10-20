@@ -1,0 +1,137 @@
+.todo-container {
+  max-width: 600px;
+  margin: 50px auto;
+  padding: 20px;
+  border: 1px solid #ddd;
+  border-radius: 5px;
+  background-color: #f9f9f9;
+  box-shadow: 0 2px 10px rgba(0, 0, 0, 0.1);
+}
+
+.todo-container h2 {
+  text-align: center;
+  margin-bottom: 20px;
+}
+
+.todo-container form {
+  display: flex;
+  justify-content: space-between;
+}
+
+.todo-container input[type="text"] {
+  flex: 1;
+  padding: 10px;
+  margin-right: 10px;
+  border: 1px solid #ddd;
+  border-radius: 4px;
+}
+
+.todo-container button {
+  padding: 10px;
+  background-color: #007bff;
+  border: none;
+  border-radius: 4px;
+  color: white;
+  cursor: pointer;
+}
+
+.todo-container button:hover {
+  background-color: #0056b3;
+}
+
+.todo-container ul {
+  list-style-type: none;
+  padding: 0;
+}
+
+.todo-container li {
+  display: flex;
+  justify-content: space-between;
+  padding: 10px 0;
+  border-bottom: 1px solid #ddd;
+}
+
+.todo-container li button {
+  background-color: #dc3545;
+}
+
+.todo-container li button:hover {
+  background-color: #c82333;
+}
+
+.todo-container li button.edit-button {
+  background-color: #007bff;
+  color: white;
+}
+.todo-container li input[type="text"] {
+  margin-right: 10px;
+}
+
+/* General styling for the to-do item */
+.todo-item {
+  display: flex;
+  align-items: center;
+  margin-bottom: 25px;
+  font-size: 18px;
+}
+
+/* Hide default checkbox */
+.custom-checkbox input[type="checkbox"] {
+  display: none;
+}
+
+/* Create a custom checkbox */
+.custom-checkbox {
+  display: flex;
+  align-items: center;
+  position: relative;
+  padding-left: 35px;
+  cursor: pointer;
+  user-select: none;
+  font-size: 18px;
+}
+
+/* Create the box for the checkbox */
+.custom-checkbox .checkmark {
+  position: absolute;
+  top: 0;
+  left: 0;
+  height: 25px;
+  width: 25px;
+  background-color: #ccc;
+  border-radius: 5px;
+  transition: background-color 0.3s ease;
+}
+
+/* Checked state */
+.custom-checkbox input[type="checkbox"]:checked ~ .checkmark {
+  background-color: #28a745; /* Green for completed */
+}
+
+/* Add a checkmark icon (✔) */
+.custom-checkbox .checkmark::after {
+  content: "";
+  position: absolute;
+  display: none;
+}
+
+/* Display checkmark when the checkbox is checked */
+.custom-checkbox input[type="checkbox"]:checked ~ .checkmark::after {
+  display: block;
+}
+
+/* Style for the checkmark */
+.custom-checkbox .checkmark::after {
+  left: 9px;
+  top: 3px;
+  width: 6px;
+  height: 12px;
+  border: solid white;
+  border-width: 0 3px 3px 0;
+  transform: rotate(45deg);
+}
+
+/* Add hover effect for the checkbox */
+.custom-checkbox:hover input[type="checkbox"] ~ .checkmark {
+  background-color: #aaa;
+}

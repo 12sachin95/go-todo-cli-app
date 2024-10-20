@@ -12,6 +12,7 @@ import (
 
 	"go.mongodb.org/mongo-driver/bson/primitive"
 
+	"github.com/gin-contrib/cors"
 	"github.com/gin-gonic/gin"
 	"github.com/go-playground/validator/v10"
 )
@@ -52,6 +53,15 @@ func StartServer() {
 
 	db.ConnectMongoDB(uri)
 	r := gin.Default()
+
+	corsConfig := cors.New(cors.Config{
+		AllowOrigins:     []string{"http://localhost:3000"}, // Replace with your allowed origins
+		AllowMethods:     []string{"GET", "POST", "PUT", "DELETE"},
+		AllowHeaders:     []string{"Content-Type", "Authorization"},
+		AllowCredentials: true,
+	})
+
+	r.Use(corsConfig)
 
 	v1 := r.Group("/todo-app/api/v1")
 
