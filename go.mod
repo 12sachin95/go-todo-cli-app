@@ -9,6 +9,7 @@ require (
 	github.com/go-resty/resty/v2 v2.15.3
 	github.com/joho/godotenv v1.5.1
 	github.com/spf13/cobra v1.6.1
+	github.com/spf13/viper v1.19.0
 	go.mongodb.org/mongo-driver v1.17.1
 	golang.org/x/crypto v0.26.0
 )
@@ -39,7 +40,6 @@ require (
 	github.com/spf13/afero v1.11.0 // indirect
 	github.com/spf13/cast v1.6.0 // indirect
 	github.com/spf13/pflag v1.0.5 // indirect
-	github.com/spf13/viper v1.19.0 // indirect
 	github.com/subosito/gotenv v1.6.0 // indirect
 	github.com/ugorji/go/codec v1.2.7 // indirect
 	github.com/xdg-go/pbkdf2 v1.0.0 // indirect
