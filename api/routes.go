@@ -4,7 +4,6 @@ import (
 	"go-todo-cli/db"
 	"go-todo-cli/models"
 	"go-todo-cli/services"
-	"log"
 	"net/http"
 	"os"
 	"strings"
@@ -14,7 +13,6 @@ import (
 
 	"github.com/gin-gonic/gin"
 	"github.com/go-playground/validator/v10"
-	"github.com/joho/godotenv"
 )
 
 // Initialize a validator instance
@@ -43,17 +41,12 @@ func TodoRoutes(router *gin.RouterGroup) {
 
 func StartServer() {
 	validate = validator.New()
-	// Load the .env file
-	err := godotenv.Load()
-	if err != nil {
-		log.Fatal("Error loading .env file")
-	}
 
 	// Get the environment variables
 	port := os.Getenv("PORT")
 	uri := os.Getenv("MONGODB_URI")
 	if port == "" {
-		port = "8080" // Default port if not set
+		port = "8000" // Default port if not set
 	}
 
 	db.ConnectMongoDB(uri)
