@@ -1,6 +1,18 @@
 # Name of the CLI binary
 CLI_NAME=todo-cli
 
+client-install:
+	@echo "Installing client dependencies..."
+	@cd client && npm install
+
+client-start:
+	@echo "Starting client ..."
+	@cd client && npm run start
+
+client-build:
+	@echo "Building client ..."
+	@cd client && npm run build
+
 install:
 	@echo "Installing dependencies..."
 	go mod tidy
